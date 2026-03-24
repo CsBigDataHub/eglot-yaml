@@ -2,12 +2,12 @@
 
 ;; Copyright (C) 2019-2024 Yves Zoundi
 
-;; Version: 1.3
 ;; Author: Yves Zoundi <yves_zoundi@hotmail.com>
 ;; Maintainer: Yves Zoundi <yves_zoundi@hotmail.com>
 ;; URL: https://github.com/yveszoundi/eglot-yaml
-;; Keywords: convenience, languages
+;; Version: 1.3
 ;; Package-Requires: ((emacs "26.1") (eglot "1.0"))
+;; Keywords: convenience, languages
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -24,19 +24,27 @@
 
 ;;; Commentary:
 
-;; Yaml extension for the eglot LSP client.
+;; YAML extension for the eglot LSP client.
 ;;
-;; Enable eglot for YAML buffers
-;; (add-hook 'yaml-mode-hook (lambda () (eglot-ensure)))
+;; This package provides integration between eglot and YAML language servers,
+;; with support for JSON schema validation and completion.
 ;;
-;; Once eglot is up and running for a given YAML buffer, invoke "M-x eglot-yaml-schema-for-buffer"
-;; - You'll be prompted to select a schema for YAML auto-completion
-;; - You can then use the completion mechanism of your choice (company-mode, etc.)
+;; Usage:
+;;
+;; Enable eglot for YAML buffers:
+;;   (add-hook 'yaml-mode-hook #'eglot-ensure)
+;;
+;; Select a JSON schema for validation and completion:
+;;   M-x eglot-yaml-schema-for-buffer
+;;
+;; You'll be prompted to select a schema from SchemaStore.org for YAML
+;; auto-completion.  Schemas are cached locally for offline use.
 
-;;
 ;;; Code:
 
 (require 'eglot)
+(require 'json)
+(require 'url)
 
 (defgroup eglot-yaml nil
   "Interaction with a YAML language server via eglot."
@@ -44,7 +52,7 @@
   :group 'eglot)
 
 (defcustom eglot-yaml-schema-store-uri "https://www.schemastore.org/api/json/catalog.json"
-  "Cache folder for YAML JSON schemas"
+  "URI for the JSON schema catalog from SchemaStore.org."
   :type 'string
   :group 'eglot-yaml)
 
@@ -53,18 +61,17 @@
   :type 'string
   :group 'eglot-yaml)
 
-(defvar eglot-yaml-schema-by-name #s(hash-table size 30 test equal) "YAML schema by name.")
-
-(declare-function 'json-read-from-string "json" (text))
+(defvar eglot-yaml-schema-by-name (make-hash-table :size 30 :test 'equal)
+  "Hash table mapping YAML schema names to their URLs.")
 
 (defun eglot-yaml--file-to-string (file)
-  "File to string function"
+  "Read FILE contents and return as a string."
   (with-temp-buffer
     (insert-file-contents file)
     (buffer-string)))
 
 (defun eglot-yaml--schema-store-cache-list (schema-index-file)
-  "Cache schemas URL for all available schema for a given catalog file."
+  "Parse SCHEMA-INDEX-FILE and populate schema cache with available schemas."
   (let* ((json-object-type 'hash-table)
          (json-array-type  'list)
          (json-key-type    'string)
@@ -110,7 +117,7 @@
                                                             (buffer-file-name))))))
             (setq eglot-workspace-configuration eglot-yaml-schemas)
             (call-interactively 'eglot-signal-didChangeConfiguration)))))
-    (user-error "Cannot only set YAML schema in yaml-mode or yaml-ts-mode.")))
+    (user-error "Can only set YAML schema in yaml-mode or yaml-ts-mode")))
 
 (provide 'eglot-yaml)
 ;;; eglot-yaml.el ends here
