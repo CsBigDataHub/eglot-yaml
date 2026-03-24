@@ -6,7 +6,7 @@
 ;; Maintainer: Yves Zoundi <yves_zoundi@hotmail.com>
 ;; URL: https://github.com/yveszoundi/eglot-yaml
 ;; Version: 1.3
-;; Package-Requires: ((emacs "26.1") (eglot "1.0"))
+;; Package-Requires: ((emacs "30.1"))
 ;; Keywords: convenience, languages
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -56,7 +56,8 @@
   :type 'string
   :group 'eglot-yaml)
 
-(defcustom eglot-yaml-schema-cache-directory "~/.emacs.d/etc/cache/eglot-yaml"
+(defcustom eglot-yaml-schema-cache-directory
+  (locate-user-emacs-file "etc/cache/eglot-yaml")
   "Cache folder for YAML JSON schemas."
   :type 'string
   :group 'eglot-yaml)
@@ -88,35 +89,34 @@
   (interactive)
   (if (or (derived-mode-p 'yaml-mode)
           (derived-mode-p 'yaml-ts-mode))
-      (progn
-        (let ((eglot-yaml-schema-index (expand-file-name "index" eglot-yaml-schema-cache-directory)))
-          (unless (file-exists-p eglot-yaml-schema-cache-directory)
-            (mkdir eglot-yaml-schema-cache-directory t))
+      (let ((eglot-yaml-schema-index (expand-file-name "index" eglot-yaml-schema-cache-directory)))
+        (unless (file-exists-p eglot-yaml-schema-cache-directory)
+          (mkdir eglot-yaml-schema-cache-directory t))
 
-          (unless (file-exists-p eglot-yaml-schema-index)
-            (url-copy-file eglot-yaml-schema-store-uri eglot-yaml-schema-index t))
+        (unless (file-exists-p eglot-yaml-schema-index)
+          (url-copy-file eglot-yaml-schema-store-uri eglot-yaml-schema-index t))
 
-          (when (hash-table-empty-p eglot-yaml-schema-by-name)
-            (eglot-yaml--schema-store-cache-list eglot-yaml-schema-index))
+        (when (hash-table-empty-p eglot-yaml-schema-by-name)
+          (eglot-yaml--schema-store-cache-list eglot-yaml-schema-index))
 
-          (let* ((selected-schema-name (completing-read "Select schema: "
-                                                        (hash-table-keys eglot-yaml-schema-by-name)
-                                                        nil
-                                                        t))
-                 (selected-schema-uri  (gethash selected-schema-name eglot-yaml-schema-by-name))
-                 (schema-uri-local-path (expand-file-name
-                                         selected-schema-name
-                                         eglot-yaml-schema-cache-directory)))
+        (let* ((selected-schema-name (completing-read "Select schema: "
+                                                      (hash-table-keys eglot-yaml-schema-by-name)
+                                                      nil
+                                                      t))
+               (selected-schema-uri  (gethash selected-schema-name eglot-yaml-schema-by-name))
+               (schema-uri-local-path (expand-file-name
+                                       selected-schema-name
+                                       eglot-yaml-schema-cache-directory)))
 
-            (unless (file-exists-p schema-uri-local-path)
-              (url-copy-file selected-schema-uri schema-uri-local-path t))
+          (unless (file-exists-p schema-uri-local-path)
+            (url-copy-file selected-schema-uri schema-uri-local-path t))
 
-            (let ((eglot-yaml-schemas (list
-                                      (list :yaml
-                                            :schemas  (list (intern (format ":%s" (eglot--path-to-uri schema-uri-local-path)))
-                                                            (buffer-file-name))))))
+          (let ((eglot-yaml-schemas (list
+                                     (list :yaml
+                                           :schemas (list (intern (format ":%s" (eglot-path-to-uri schema-uri-local-path)))
+                                                          (buffer-file-name))))))
             (setq eglot-workspace-configuration eglot-yaml-schemas)
-            (call-interactively 'eglot-signal-didChangeConfiguration)))))
+            (call-interactively 'eglot-signal-didChangeConfiguration))))
     (user-error "Can only set YAML schema in yaml-mode or yaml-ts-mode")))
 
 (provide 'eglot-yaml)
